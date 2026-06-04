@@ -1,0 +1,23 @@
+{
+  "name": "piano-chord-ninja",
+  "version": "1.0.0",
+  "description": "Arcade fruit-slicing game powered by music theory chords and Web MIDI.",
+  "main": "game.js",
+  "scripts": {
+    "start": "npx http-server ./ -p 8080"
+  },
+  "keywords": [
+    "music",
+    "piano",
+    "chords",
+    "web-midi",
+    "canvas",
+    "arcade"
+  ],
+  "author": "Antigravity",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}
