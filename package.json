@@ -1,23 +1,29 @@
 {
-  "name": "piano-chord-ninja",
-  "version": "1.0.0",
-  "description": "Arcade fruit-slicing game powered by music theory chords and Web MIDI.",
-  "main": "game.js",
+  "name": "temp-vite",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
   "scripts": {
-    "start": "npx http-server ./ -p 8080"
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
   },
-  "keywords": [
-    "music",
-    "piano",
-    "chords",
-    "web-midi",
-    "canvas",
-    "arcade"
-  ],
-  "author": "Antigravity",
-  "license": "MIT",
-  "dependencies": {},
+  "dependencies": {
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^6.0.1"
+  },
   "devDependencies": {
-    "http-server": "^14.1.1"
+    "@eslint/js": "^10.0.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "vite": "^8.0.12"
   }
 }
