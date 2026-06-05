@@ -62,7 +62,6 @@ export default function GameHud({
         </div>
       </div>
 
-      {/* Middle chord tag / song progress name */}
       <div className="hud-center">
         {gameMode === "ninja" ? (
           <>
@@ -71,7 +70,7 @@ export default function GameHud({
               {detectedChord || "--"}
             </span>
           </>
-        ) : (
+        ) : gameMode === "waterfall" ? (
           <>
             <span className="label">PLAYING SONG</span>
             <span className="value glow-text font-arcade" style={{ fontSize: "20px" }}>
@@ -85,15 +84,8 @@ export default function GameHud({
                 ></div>
               </div>
             )}
-            {gameMode === "lyric" && estimatedBpm !== undefined && estimatedBpm > 0 && (
-              <div className="font-arcade" style={{ fontSize: "0.75rem", color: "var(--neon-cyan)", marginTop: "6px", textShadow: "0 0 4px rgba(0, 243, 255, 0.4)", display: "flex", justifyContent: "center", alignItems: "center", gap: "5px" }}>
-                <span>⚡ TEMPO:</span>
-                <span className="highlight animate-pulse" style={{ color: "var(--neon-yellow)" }}>{Math.round(estimatedBpm)} BPM</span>
-                <span style={{ color: "var(--text-secondary)" }}>(EST.)</span>
-              </div>
-            )}
           </>
-        )}
+        ) : null}
       </div>
 
       {/* Right: Hearts lives container */}
@@ -125,7 +117,7 @@ export default function GameHud({
             AUTO: {autoPlayEnabled ? "ON" : "OFF"}
           </button>
           
-          {gameMode === "ninja" && (
+          {(gameMode === "ninja" || gameMode === "lyric") && (
             <button
               onClick={() => setLearnModeEnabled(!learnModeEnabled)}
               className={`hud-btn ${learnModeEnabled ? "toggle-active" : ""}`}

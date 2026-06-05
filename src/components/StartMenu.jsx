@@ -169,16 +169,30 @@ export default function StartMenu({
   return (
     <div id="startMenu" className="overlay active">
       <div className={`glass-panel ${gameMode === "lyric" ? "wide-menu" : ""}`} style={{ maxHeight: "90vh", overflowY: "auto" }}>
-        <h1 className="neon-title">
-          PIANO CHORD<br /><span className="highlight">NINJA</span>
-        </h1>
-        <p className="subtitle">
-          Slice falling fruits by playing matching chords, or play real music with falling piano tiles. Supports MIDI, computer keyboard, or Auto Play.
-        </p>
-
-        {highScore > 0 && (
-          <div className="high-score-tag">
-            🏆 HIGH SCORE: <span className="highlight">{highScore}</span>
+        {gameMode !== "lyric" ? (
+          <>
+            <h1 className="neon-title">
+              PIANO CHORD<br /><span className="highlight">NINJA</span>
+            </h1>
+            <p className="subtitle">
+              Slice falling fruits by playing matching chords, or play real music with falling piano tiles. Supports MIDI, computer keyboard, or Auto Play.
+            </p>
+            {highScore > 0 && (
+              <div className="high-score-tag">
+                🏆 HIGH SCORE: <span className="highlight">{highScore}</span>
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", paddingBottom: "10px" }}>
+            <span style={{ fontSize: "1.2rem", fontWeight: "bold", color: "#fff", letterSpacing: "1px", textShadow: "var(--glow-cyan)" }}>
+              PIANO CHORD <span className="highlight">NINJA</span>
+            </span>
+            {highScore > 0 && (
+              <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                🏆 HIGH SCORE: <strong style={{ color: "var(--neon-yellow)" }}>{highScore}</strong>
+              </span>
+            )}
           </div>
         )}
 
@@ -390,8 +404,8 @@ export default function StartMenu({
               </button>
             </div>
 
-            {/* Right Column: Song Library, URL Scraper, Search/Favorites */}
-            <div className="menu-column-right">
+            {/* Middle Column: Song Import & Url Scraper */}
+            <div className="menu-column-middle">
               <div className="settings-section" style={{ height: "100%", display: "flex", flexDirection: "column", margin: 0 }}>
                 <h3>Play along with Song Lyrics & Chords</h3>
                 <form onSubmit={handleLoadUrl} className="url-loader-form" style={{ display: "flex", gap: "10px", margin: "15px 0 10px 0" }}>
@@ -443,18 +457,25 @@ export default function StartMenu({
                     ✅ Loaded: <strong>{lyricSongData.title}</strong> by {lyricSongData.artist} ({lyricSongData.lines.filter(l => l.type === "lyric_chords").length} lines parsed)
                   </div>
                 )}
+              </div>
+            </div>
 
+            {/* Right Column: Song Library, Search/Favorites */}
+            <div className="menu-column-right">
+              <div className="settings-section" style={{ height: "100%", display: "flex", flexDirection: "column", margin: 0 }}>
+                <h3>Saved Songs Library</h3>
+                
                 {/* Search and Filters */}
-                <div style={{ display: "flex", gap: "15px", margin: "20px 0 10px 0", flexWrap: "wrap", alignItems: "center" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px", margin: "15px 0 10px 0" }}>
                   <input
                     type="text"
                     value={songSearchQuery}
                     onChange={(e) => setSongSearchQuery(e.target.value)}
                     placeholder="🔍 Search saved songs..."
                     className="glass-select"
-                    style={{ flex: 1, paddingLeft: "15px", cursor: "text", fontSize: "0.9rem" }}
+                    style={{ width: "100%", paddingLeft: "15px", cursor: "text", fontSize: "0.9rem" }}
                   />
-                  <label className="checkbox-container" style={{ paddingLeft: "25px", fontSize: "0.85rem", width: "auto" }}>
+                  <label className="checkbox-container" style={{ paddingLeft: "25px", fontSize: "0.85rem", width: "auto", margin: "5px 0 0 0" }}>
                     <input
                       type="checkbox"
                       checked={showFavoritesOnly}
@@ -469,7 +490,7 @@ export default function StartMenu({
                 <h4 style={{ color: "var(--neon-cyan)", fontSize: "0.9rem", margin: "10px 0 8px 0", textTransform: "uppercase", letterSpacing: "1px", textAlign: "left" }}>
                   Saved Library ({savedSongsList.length})
                 </h4>
-                <div className="saved-songs-grid" style={{ maxHeight: "380px", height: "380px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px", background: "rgba(0, 0, 0, 0.2)", padding: "10px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                <div className="saved-songs-grid" style={{ maxHeight: "520px", height: "520px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px", background: "rgba(0, 0, 0, 0.2)", padding: "10px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.05)" }}>
                   {savedSongsList.length === 0 ? (
                     <div style={{ padding: "20px", color: "var(--text-secondary)", fontSize: "0.85rem", textAlign: "center" }}>
                       No saved songs found. Scrape a URL to add one!
@@ -477,9 +498,16 @@ export default function StartMenu({
                   ) : (
                     savedSongsList.map((song) => (
                       <div key={song.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255, 255, 255, 0.03)", padding: "8px 12px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)" }}>
-                        <div style={{ textAlign: "left", cursor: "pointer", flex: 1 }} onClick={() => onSelectSavedSong(song)}>
-                          <strong style={{ fontSize: "0.9rem", color: "#fff" }}>{song.title}</strong>
-                          <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginLeft: "8px" }}>by {song.artist}</span>
+                        <div 
+                          style={{ textAlign: "left", cursor: "pointer", flex: 1 }} 
+                          onClick={() => onSelectSavedSong(song)}
+                          onDoubleClick={() => {
+                            onSelectSavedSong(song);
+                            onStartGame();
+                          }}
+                        >
+                          <strong style={{ fontSize: "0.9rem", color: "#fff", display: "block" }}>{song.title}</strong>
+                          <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>by {song.artist}</span>
                           {song.transpose !== 0 && (
                             <span style={{ fontSize: "0.75rem", color: "var(--neon-yellow)", background: "rgba(255,234,0,0.1)", padding: "1px 5px", borderRadius: "4px", marginLeft: "8px" }}>
                               Key: {song.transpose >= 0 ? `+${song.transpose}` : song.transpose}
@@ -631,7 +659,7 @@ export default function StartMenu({
                   <span className="custom-checkbox"></span>
                   Virtual Piano Sound Audio
                 </label>
-                {gameMode === "ninja" && (
+                {(gameMode === "ninja" || gameMode === "lyric") && (
                   <label className="checkbox-container">
                     <input
                       type="checkbox"
@@ -639,7 +667,7 @@ export default function StartMenu({
                       onChange={(e) => setLearnModeEnabled(e.target.checked)}
                     />
                     <span className="custom-checkbox"></span>
-                    Learn Mode (Pause at peak)
+                    Learn Mode (Pause at peak / wait for space to advance)
                   </label>
                 )}
               </div>

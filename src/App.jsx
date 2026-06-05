@@ -26,6 +26,7 @@ const normalizeNoteName = (noteName) => {
 };
 
 const midiNoteToLabel = (midiNote) => {
+  if (midiNote === 0) return "C-1";
   const noteName = NOTE_NAMES[midiNote % 12];
   const octave = Math.floor(midiNote / 12) - 1;
   return `${noteName}${octave}`;
@@ -217,6 +218,7 @@ export default function App() {
   const lastMatchTimeRef = useRef(0);
   const matchIntervalsRef = useRef([]);
   const lastMatchedNotesRef = useRef([]);
+  const pendingNextChordIndexRef = useRef(null);
 
   const formatMidiLogLines = (logs = midiLogs) => {
     if (!logs || logs.length === 0) return "";
@@ -225,6 +227,7 @@ export default function App() {
       const active = entry.activeNotes.length > 0 ? entry.activeNotes.map(midiNoteToLabel).join(" ") : "-";
       const detected = entry.detectedChord || "-";
       const target = entry.targetChord || "-";
+      const lineStr = entry.lineIndex !== undefined && entry.lineIndex !== -1 ? `${entry.lineIndex}` : "-";
       return [
         `${entry.relativeTime.toFixed(3)}s`,
         entry.action,
@@ -235,7 +238,8 @@ export default function App() {
         `active=[${active}]`,
         `detected=${detected}`,
         `target=${target}`,
-        `idx=${entry.chordIndex}`
+        `idx=${entry.chordIndex}`,
+        `line=${lineStr}`
       ].join(" | ");
     }).join("\n");
   };
@@ -264,6 +268,23 @@ export default function App() {
     }
     lastMidiLogSignatureRef.current = { signature, time: now };
 
+    let lineIdx = -1;
+    if (lyricSongData && lyricSongData.lines) {
+      let chordCounter = 0;
+      for (let i = 0; i < lyricSongData.lines.length; i++) {
+        const line = lyricSongData.lines[i];
+        if (line.skipped) continue;
+        const chordCount = (line.type === "lyric_chords" && line.segments)
+          ? line.segments.filter(seg => seg.type === "chord").length
+          : 0;
+        if (chordCount > 0 && currentChordIndex >= chordCounter && currentChordIndex < chordCounter + chordCount) {
+          lineIdx = i;
+          break;
+        }
+        chordCounter += chordCount;
+      }
+    }
+
     const noteName = midiNoteToLabel(event.note);
     const entry = {
       id: `${now}-${event.note}-${event.isPressed ? "on" : "off"}`,
@@ -277,7 +298,8 @@ export default function App() {
       activeNotes: event.activeNotes || [],
       detectedChord: event.detectedChord || "",
       targetChord: activeLyricChord || "",
-      chordIndex: currentChordIndex
+      chordIndex: currentChordIndex,
+      lineIndex: lineIdx
     };
 
     setMidiLogs(prev => [...prev, entry].slice(-MIDI_LOG_LIMIT));
@@ -576,6 +598,14 @@ export default function App() {
     }
   };
 
+  const handleResetLyric = () => {
+    setCurrentChordIndex(0);
+    lastMatchedNotesRef.current = [];
+    lyricRakeNotesRef.current = [];
+    setLyricInputNotes([]);
+    setDetectedChord("");
+  };
+
   // Scrape HopAmChuan songs
   const handleLoadLyricSong = async (url) => {
     if (!url) return;
@@ -685,38 +715,61 @@ export default function App() {
     };
   }, [activeNotes, gameState, gameMode]);
 
-  // Debounce raw MIDI activeNotes and detectedChord by 60ms to prevent double/triple skips from sequential keypresses.
-  const [debouncedNotes, setDebouncedNotes] = useState([]);
-  const [debouncedChord, setDebouncedChord] = useState("");
+  // Track Space bar presses for learning break log & manual line changes
+  const [waitingForSpaceLineIndex, setWaitingForSpaceLineIndex] = useState(null);
 
   useEffect(() => {
-    if (gameState !== "playing" || gameMode !== "lyric") {
-      setDebouncedNotes([]);
-      setDebouncedChord("");
-      return;
-    }
+    const handleKeyDown = (e) => {
+      if (gameState !== "playing" || gameMode !== "lyric") return;
+      if (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA") return;
 
-    const timer = setTimeout(() => {
-      setDebouncedNotes(lyricInputNotes || []);
-      setDebouncedChord(detectedChord || "");
-    }, 60);
+      if (e.code === "Space") {
+        e.preventDefault();
+        
+        // Log the spacebar action
+        handleInputLog({
+          note: 0,
+          isPressed: true,
+          source: "keyboard",
+          velocity: 127,
+          detectedChord: "SPACEBAR (Advance Line)",
+          activeNotes: []
+        });
 
-    return () => clearTimeout(timer);
-  }, [lyricInputNotes, detectedChord, gameState, gameMode]);
+        // Resume progression if we were blocked waiting for Space
+        if (waitingForSpaceLineIndex !== null) {
+          if (pendingNextChordIndexRef.current !== null) {
+            setCurrentChordIndex(pendingNextChordIndexRef.current);
+            pendingNextChordIndexRef.current = null;
+          }
+          setWaitingForSpaceLineIndex(null);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [gameState, gameMode, waitingForSpaceLineIndex]);
 
   // 1. User chord/bass note play match validation and auto-seeking
   useEffect(() => {
     if (gameState !== "playing" || gameMode !== "lyric" || !lyricSongData) return;
 
-    // If debouncedNotes is empty, reset match history checks to allow next keys strike
-    if (!debouncedNotes || debouncedNotes.length === 0) {
+    // If waiting for space, do not match any new chords to hold the line progress
+    if (waitingForSpaceLineIndex !== null) return;
+
+    // If lyricInputNotes is empty, reset match history checks to allow next keys strike
+    if (!lyricInputNotes || lyricInputNotes.length === 0) {
       lastMatchedNotesRef.current = [];
       return;
     }
 
+    // Cooldown of 350ms after a successful match to prevent double-triggering/skips
+    const now = performance.now();
+    if (now - lastMatchTimeRef.current < 350) return;
+
     // Prevent double-matching the same key presses
     if (lastMatchedNotesRef.current && lastMatchedNotesRef.current.length > 0) {
-      const isSubset = debouncedNotes.every(note => lastMatchedNotesRef.current.includes(note));
+      const isSubset = lyricInputNotes.every(note => lastMatchedNotesRef.current.includes(note));
       if (isSubset) return;
     }
 
@@ -725,7 +778,6 @@ export default function App() {
     if (chords.length === 0 || currentChordIndex >= chords.length) return;
 
     // Match strictly from top to bottom, then left to right inside the current lyric line.
-    // The small two-chord window lets the player catch up within the line without jumping globally.
     let matchedIndex = -1;
     const currentLine = getLyricLineRanges().find(range => (
       range.chordCount > 0 &&
@@ -740,7 +792,7 @@ export default function App() {
     for (let i = matchStart; i < matchEnd; i++) {
       const targetChord = chords[i];
       const transposedTarget = transposeChord(targetChord, transposeOffset);
-      if (checkChordMatch(debouncedNotes, debouncedChord, transposedTarget)) {
+      if (checkChordMatch(lyricInputNotes, detectedChord, transposedTarget)) {
         matchedIndex = i;
         break;
       }
@@ -749,13 +801,12 @@ export default function App() {
     // If we found a match, execute match actions and transposition-aware advancement!
     if (matchedIndex !== -1) {
       // Record these notes to prevent repeat matches until keys are lifted/changed
-      lastMatchedNotesRef.current = [...debouncedNotes];
+      lastMatchedNotesRef.current = [...lyricInputNotes];
       lyricRakeNotesRef.current = [];
 
       audioManager.playChordCorrectSFX();
       
       // Calculate BPM prediction based on intervals between chord changes
-      const now = performance.now();
       if (lastMatchTimeRef.current > 0) {
         const interval = (now - lastMatchTimeRef.current) / 1000;
         // Tempo delta boundaries: 0.4s to 6.0s
@@ -776,7 +827,28 @@ export default function App() {
 
       // Advance index to the matched chord's NEXT index
       const nextIdx = matchedIndex + 1;
-      setCurrentChordIndex(nextIdx);
+      let shouldWait = false;
+
+      // If Learn Mode is active, check if this advancement is stepping onto a new lyric line
+      if (learnModeEnabled && currentLine) {
+        const nextChordLine = getLyricLineRanges().find(range => (
+          range.chordCount > 0 &&
+          nextIdx >= range.startChordIndex &&
+          nextIdx < range.endChordIndex
+        ));
+        
+        if (nextChordLine && nextChordLine.lineIndex !== currentLine.lineIndex) {
+          // It's going to change line! Hold progress on the current line and wait for SPACE
+          setWaitingForSpaceLineIndex(currentLine.lineIndex);
+          shouldWait = true;
+          // Save the pending next index to resume to later
+          pendingNextChordIndexRef.current = nextIdx;
+        }
+      }
+
+      if (!shouldWait) {
+        setCurrentChordIndex(nextIdx);
+      }
 
       if (nextIdx >= chords.length) {
         // Finished song! Loop back to the beginning to play again
@@ -788,7 +860,7 @@ export default function App() {
       // Clear detectedChord immediately to prevent double trigger matches
       setDetectedChord("");
     }
-  }, [debouncedNotes, debouncedChord, gameState, gameMode, lyricSongData, currentChordIndex, combo, score, transposeOffset]);
+  }, [lyricInputNotes, detectedChord, gameState, gameMode, lyricSongData, currentChordIndex, combo, score, transposeOffset]);
 
   // 2. Autoplay timer mode
   useEffect(() => {
@@ -928,6 +1000,7 @@ export default function App() {
           isFavorite={!!lyricSongData?.is_favorite}
           onFavoriteToggle={handleFavoriteToggleActive}
           onSkipCurrentLine={handleSkipCurrentLyricLine}
+          onResetLyric={handleResetLyric}
           
           // Library drawer controls
           savedSongsList={savedSongsList}
@@ -942,6 +1015,7 @@ export default function App() {
           setLyricSongUrl={setLyricSongUrl}
           onLoadLyricSong={handleLoadLyricSong}
           isLyricLoading={isLyricLoading}
+          waitingForSpaceLineIndex={waitingForSpaceLineIndex}
         />
       )}
 

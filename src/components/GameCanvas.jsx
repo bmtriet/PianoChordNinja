@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { getChordNotes, detectChord, NOTE_NAMES } from "../utils/chordDetector";
+import { getChordNotes, detectChord, NOTE_NAMES, getChordVoicingMidiNotes } from "../utils/chordDetector";
 import { audioManager, SONGS } from "../utils/audio";
 import { WATERFALL_SONGS } from "../utils/musicTracks";
 
@@ -276,7 +276,17 @@ export default function GameCanvas({
       return;
     }
 
-    const detected = detectChord(Array.from(state.activeNotes));
+    // Smart Auto-Split: Extract left-hand (bass/chord) notes for matching.
+    // Left-hand notes are defined as any active note within 19 semitones (1 octave + 5th) of the lowest active note.
+    const getLeftHandNotes = (notesSet) => {
+      const notes = Array.from(notesSet);
+      if (notes.length === 0) return [];
+      const lowestMidi = Math.min(...notes);
+      return notes.filter(note => note - lowestMidi <= 19);
+    };
+
+    const leftHandNotes = getLeftHandNotes(state.activeNotes);
+    const detected = detectChord(leftHandNotes);
     if (detected) {
       state.detectedChordName = detected.name;
       pushStats();
@@ -295,24 +305,36 @@ export default function GameCanvas({
     if (!onInputLog) return;
 
     const s = stateRef.current;
+    const getLeftHandNotes = (notesSet) => {
+      const notes = Array.from(notesSet);
+      if (notes.length === 0) return [];
+      const lowestMidi = Math.min(...notes);
+      return notes.filter(note => note - lowestMidi <= 19);
+    };
     onInputLog({
       note: noteNumber,
       isPressed,
       source,
       velocity,
       detectedChord: s.detectedChordName,
-      activeNotes: Array.from(s.activeNotes)
+      activeNotes: getLeftHandNotes(s.activeNotes)
     });
   }
 
   function pushStats() {
     const s = stateRef.current;
+    const getLeftHandNotes = (notesSet) => {
+      const notes = Array.from(notesSet);
+      if (notes.length === 0) return [];
+      const lowestMidi = Math.min(...notes);
+      return notes.filter(note => note - lowestMidi <= 19);
+    };
     onStatsUpdate({
       score: s.score,
       combo: s.combo,
       detectedChord: s.detectedChordName,
       lives: s.lives,
-      activeNotes: Array.from(s.activeNotes)
+      activeNotes: getLeftHandNotes(s.activeNotes)
     });
   }
 
@@ -1055,35 +1077,74 @@ export default function GameCanvas({
     const keyWidth = width / totalWhite;
 
     // Get current chord spelling finger guides
-    let guidePitchClassToFinger = {};
+    let guideMidiToFinger = {};
+    let targetPitchClasses = [];
+    let currentTargetChordName = "";
+
     if (gameMode === "ninja") {
       const oldestFruit = s.fruits.find(f => !f.sliced);
       if (oldestFruit) {
-        const guideInfo = getChordNotes(oldestFruit.targetChord);
-        if (guideInfo) {
-          guideInfo.notes.forEach((name, idx) => {
-            const pc = NOTE_NAMES.indexOf(name);
-            guidePitchClassToFinger[pc] = guideInfo.fingers[idx];
+        currentTargetChordName = oldestFruit.targetChord;
+      }
+    } else if (gameMode === "lyric" && activeLyricChord) {
+      currentTargetChordName = activeLyricChord;
+    }
+
+    if (currentTargetChordName) {
+      const targetInfo = getChordNotes(currentTargetChordName);
+      if (targetInfo) {
+        targetPitchClasses = targetInfo.notes.map(name => NOTE_NAMES.indexOf(name));
+        const voicingNotes = getChordVoicingMidiNotes(currentTargetChordName, minMidi, maxMidi);
+        if (voicingNotes) {
+          voicingNotes.forEach((midiNote, idx) => {
+            guideMidiToFinger[midiNote] = targetInfo.fingers[idx];
           });
         }
       }
-    } else if (gameMode === "lyric" && activeLyricChord) {
-      const guideInfo = getChordNotes(activeLyricChord);
-      if (guideInfo) {
-        guideInfo.notes.forEach((name, idx) => {
-          const pc = NOTE_NAMES.indexOf(name);
-          guidePitchClassToFinger[pc] = guideInfo.fingers[idx];
-        });
-      }
-    } else {
-      // In Waterfall Practice, guide notes are active unplayed notes touching the bottom
-      if (waterfallPlayMode === "practice") {
-        const activeUnplayed = s.songNotes.filter(n => n.time <= s.songPlaybackTime && !n.hit);
-        activeUnplayed.forEach(n => {
-          guidePitchClassToFinger[n.midi % 12] = "?"; // Displays generic placeholder
-        });
-      }
+    } else if (gameMode === "waterfall" && waterfallPlayMode === "practice") {
+      const activeUnplayed = s.songNotes.filter(n => n.time <= s.songPlaybackTime && !n.hit);
+      activeUnplayed.forEach(n => {
+        guideMidiToFinger[n.midi] = "?";
+      });
     }
+
+    const getPressedKeyStyle = (note, isBlack) => {
+      // Find lowest active note in state.activeNotes to determine if this note is melody (right-hand)
+      const activeNotesArr = Array.from(s.activeNotes);
+      const lowestActiveMidi = activeNotesArr.length > 0 ? Math.min(...activeNotesArr) : null;
+      const isMelodyNote = lowestActiveMidi !== null && (note - lowestActiveMidi > 19);
+
+      if (currentTargetChordName && targetPitchClasses.length > 0 && !isMelodyNote) {
+        const isCorrect = targetPitchClasses.includes(note % 12);
+        if (isCorrect) {
+          return {
+            fill: "rgba(57, 255, 20, 0.25)",
+            stroke: "rgba(57, 255, 20, 0.75)",
+            shadow: "#39ff14"
+          };
+        } else {
+          return {
+            fill: "rgba(255, 60, 60, 0.25)",
+            stroke: "rgba(255, 60, 60, 0.75)",
+            shadow: "#ff3c3c"
+          };
+        }
+      }
+      // Default playing colors
+      if (isBlack) {
+        return {
+          fill: "rgba(157, 0, 255, 0.4)",
+          stroke: "rgba(157, 0, 255, 0.8)",
+          shadow: "#9d00ff"
+        };
+      } else {
+        return {
+          fill: "rgba(0, 243, 255, 0.25)",
+          stroke: "rgba(0, 243, 255, 0.6)",
+          shadow: "#00f3ff"
+        };
+      }
+    };
 
     // Keyboard frame background card
     ctx.save();
@@ -1113,13 +1174,14 @@ export default function GameCanvas({
 
       // Note is pressed if user pressed it OR if Auto Play has it simulated
       const isPressed = s.activeNotes.has(note) || s.activeSimulatedNotes.has(note);
-      const isGuide = (note % 12) in guidePitchClassToFinger;
+      const isGuide = note in guideMidiToFinger;
 
       ctx.save();
       if (isPressed) {
-        ctx.fillStyle = "rgba(0, 243, 255, 0.25)";
-        ctx.strokeStyle = "rgba(0, 243, 255, 0.6)";
-        ctx.shadowColor = "#00f3ff";
+        const style = getPressedKeyStyle(note, false);
+        ctx.fillStyle = style.fill;
+        ctx.strokeStyle = style.stroke;
+        ctx.shadowColor = style.shadow;
         ctx.shadowBlur = 10;
       } else {
         ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
@@ -1133,7 +1195,7 @@ export default function GameCanvas({
 
       // Yellow key guiding indicators (showing finger numbers or help circles)
       if (isGuide && !isPressed) {
-        const finger = guidePitchClassToFinger[note % 12];
+        const finger = guideMidiToFinger[note];
         const oldestFruit = s.fruits.find(f => !f.sliced);
         const guideAlpha = oldestFruit?.isFrozen || (gameMode === "waterfall")
           ? 0.8 + Math.sin(performance.now() * 0.01) * 0.15 
@@ -1182,13 +1244,14 @@ export default function GameCanvas({
       const kx = x + leftNeighborIdx * keyWidth + keyWidth - blackWidth / 2;
 
       const isPressed = s.activeNotes.has(bkNote) || s.activeSimulatedNotes.has(bkNote);
-      const isGuide = (bkNote % 12) in guidePitchClassToFinger;
+      const isGuide = bkNote in guideMidiToFinger;
 
       ctx.save();
       if (isPressed) {
-        ctx.fillStyle = "rgba(157, 0, 255, 0.4)";
-        ctx.strokeStyle = "rgba(157, 0, 255, 0.8)";
-        ctx.shadowColor = "#9d00ff";
+        const style = getPressedKeyStyle(bkNote, true);
+        ctx.fillStyle = style.fill;
+        ctx.strokeStyle = style.stroke;
+        ctx.shadowColor = style.shadow;
         ctx.shadowBlur = 12;
       } else {
         ctx.fillStyle = "#111116";
@@ -1202,7 +1265,7 @@ export default function GameCanvas({
 
       // Guide indicators on black keys
       if (isGuide && !isPressed) {
-        const finger = guidePitchClassToFinger[bkNote % 12];
+        const finger = guideMidiToFinger[bkNote];
         const oldestFruit = s.fruits.find(f => !f.sliced);
         const guideAlpha = oldestFruit?.isFrozen || (gameMode === "waterfall")
           ? 0.8 + Math.sin(performance.now() * 0.01) * 0.15 

@@ -281,3 +281,35 @@ export function getChordRoot(chordName) {
   const parsed = parseRootAndSuffix(baseChord);
   return parsed.root;
 }
+
+/**
+ * Resolves a specific midi note voicing (around Middle C) for a given chord name.
+ * Shifts octaves to fit within [minMidi, maxMidi] if needed.
+ * @param {string} chordName
+ * @param {number} minMidi
+ * @param {number} maxMidi
+ * @returns {number[]|null} Array of midi note numbers
+ */
+export function getChordVoicingMidiNotes(chordName, minMidi = 60, maxMidi = 84) {
+  const guideInfo = getChordNotes(chordName);
+  if (!guideInfo) return null;
+
+  let rootMidi = 60 + ((guideInfo.rootIndex - 0 + 6) % 12) - 6;
+  let chordMidiNotes = guideInfo.intervals.map(interval => rootMidi + interval);
+
+  let attempts = 0;
+  while (chordMidiNotes.some(n => n < minMidi) && attempts < 4) {
+    rootMidi += 12;
+    chordMidiNotes = guideInfo.intervals.map(interval => rootMidi + interval);
+    attempts++;
+  }
+  attempts = 0;
+  while (chordMidiNotes.some(n => n > maxMidi) && attempts < 4) {
+    rootMidi -= 12;
+    chordMidiNotes = guideInfo.intervals.map(interval => rootMidi + interval);
+    attempts++;
+  }
+
+  return chordMidiNotes;
+}
+

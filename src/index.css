@@ -1367,14 +1367,14 @@ body {
 
 /* Wide Menu Layout for Start Menu Lyric Mode */
 .glass-panel.wide-menu {
-  max-width: 1150px;
-  width: 95%;
+  max-width: 1380px;
+  width: 96%;
 }
 
 .menu-columns-container {
   display: grid;
-  grid-template-columns: 1fr 1.1fr;
-  gap: 35px;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 24px;
   text-align: left;
   margin-top: 20px;
 }
@@ -1385,15 +1385,23 @@ body {
   gap: 15px;
 }
 
+.menu-column-middle {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  padding-left: 20px;
+}
+
 .menu-column-right {
   display: flex;
   flex-direction: column;
   gap: 15px;
   border-left: 1px solid rgba(255, 255, 255, 0.08);
-  padding-left: 30px;
+  padding-left: 20px;
 }
 
-@media(max-width: 900px) {
+@media(max-width: 1100px) {
   .glass-panel.wide-menu {
     max-width: 580px;
     width: 90%;
@@ -1402,7 +1410,7 @@ body {
     grid-template-columns: 1fr;
     gap: 20px;
   }
-  .menu-column-right {
+  .menu-column-middle, .menu-column-right {
     border-left: none;
     padding-left: 0;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -1519,3 +1527,79 @@ body {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 2px;
 }
+
+/* --- KARAOKE / TELEPROMPTER VIEWPORT --- */
+.karaoke-viewport {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 35px;
+  overflow: hidden;
+  padding: 20px;
+  position: relative;
+}
+
+.karaoke-line-wrapper {
+  width: 100%;
+  text-align: center;
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  justify-content: center;
+}
+
+.karaoke-line-wrapper.previous {
+  opacity: 0.22;
+  transform: translateY(-15px) scale(0.85);
+  filter: blur(1px);
+}
+
+.karaoke-line-wrapper.active {
+  opacity: 1;
+  transform: scale(1.18);
+  filter: none;
+  z-index: 2;
+}
+
+.karaoke-line-wrapper.next {
+  opacity: 0.6;
+  transform: translateY(15px) scale(0.92);
+}
+
+.karaoke-line-wrapper .lyric-line-combo {
+  text-align: center;
+  width: 90%;
+  font-size: 1.6rem;
+  line-height: 2.2;
+  margin-bottom: 0;
+  padding: 8px 16px;
+  border-radius: 12px;
+}
+
+.karaoke-line-wrapper.active .lyric-line-combo {
+  background: linear-gradient(90deg, transparent, rgba(0, 243, 255, 0.05), rgba(255, 234, 0, 0.08), rgba(0, 243, 255, 0.05), transparent);
+  box-shadow: 0 0 30px rgba(0, 243, 255, 0.04);
+}
+
+.karaoke-line-wrapper.previous .lyric-chord-tag,
+.karaoke-line-wrapper.previous .lyric-text {
+  pointer-events: none;
+}
+
+/* Make chords and texts larger in karaoke mode */
+.karaoke-line-wrapper .lyric-chord-tag {
+  font-size: 1.25rem;
+  padding: 3px 12px;
+  margin: 0 8px;
+}
+
+.karaoke-line-wrapper .lyric-text {
+  font-size: 1.5rem;
+}
+
+.karaoke-line-wrapper.active .lyric-text.active-phrase {
+  font-weight: 700;
+  color: #fff;
+}
+

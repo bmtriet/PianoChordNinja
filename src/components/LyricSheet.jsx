@@ -11,6 +11,7 @@ export default function LyricSheet({
   isFavorite,
   onFavoriteToggle,
   onSkipCurrentLine,
+  onResetLyric,
 
   // Library drawer controls
   savedSongsList,
@@ -24,7 +25,8 @@ export default function LyricSheet({
   lyricSongUrl,
   setLyricSongUrl,
   onLoadLyricSong,
-  isLyricLoading
+  isLyricLoading,
+  waitingForSpaceLineIndex
 }) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [localUrl, setLocalUrl] = useState("");
@@ -58,27 +60,38 @@ export default function LyricSheet({
 
   if (!active || !songData) return null;
 
-  // Split lines dynamically into columns depending on length
-  const visibleLines = songData.lines.filter(line => !line.skipped);
-  const totalLines = visibleLines.length;
-  let numColumns = 1;
-  if (totalLines > 48) {
-    numColumns = 3;
-  } else if (totalLines > 16) {
-    numColumns = 2;
-  }
+  // Pre-calculate absolute chord index for every chord segment in all lines
+  let chordCounter = 0;
+  const linesWithAbsoluteChords = songData.lines.map((line) => {
+    if (line.skipped) return line;
+    if (line.type !== "lyric_chords" || !line.segments) return line;
 
-  const getColumns = () => {
-    const cols = [];
-    const linesPerCol = Math.ceil(totalLines / numColumns);
-    for (let i = 0; i < numColumns; i++) {
-      cols.push(visibleLines.slice(i * linesPerCol, (i + 1) * linesPerCol));
-    }
-    return cols;
-  };
+    const segments = line.segments.map(seg => {
+      if (seg.type !== "chord") return seg;
+      return {
+        ...seg,
+        chordIndex: chordCounter++
+      };
+    });
 
-  // Keep a single global counter for chord highlighting across columns
-  let globalChordIdx = 0;
+    return {
+      ...line,
+      segments
+    };
+  });
+
+  const visibleLines = linesWithAbsoluteChords.filter(line => !line.skipped);
+  
+  const activeVisibleIdx = visibleLines.findIndex(line => {
+    if (line.type !== "lyric_chords" || !line.segments) return false;
+    return line.segments.some(seg => seg.type === "chord" && seg.chordIndex === currentChordIndex);
+  });
+  
+  const currentActiveVisibleIdx = activeVisibleIdx !== -1 ? activeVisibleIdx : 0;
+  
+  const startIdx = Math.max(0, currentActiveVisibleIdx - 1);
+  const endIdx = Math.min(visibleLines.length, currentActiveVisibleIdx + 2);
+  const displayedLines = visibleLines.slice(startIdx, endIdx);
 
   const renderLyricText = (text, isActive) => (
     text.split(/(\s+)/).map((token, tokenIdx) => {
@@ -281,6 +294,16 @@ export default function LyricSheet({
               SKIP LINE
             </button>
 
+            <button
+              type="button"
+              onClick={onResetLyric}
+              className="hud-btn"
+              style={{ width: "auto", padding: "6px 12px", borderRadius: "6px", display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", border: "1px solid var(--neon-cyan)", color: "var(--neon-cyan)" }}
+              title="Reset the song playback to the very first line"
+            >
+              RESET LYRIC
+            </button>
+
             {/* Transpose Controls */}
             <div className="transpose-controls" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <span className="section-label" style={{ fontSize: "0.8rem", letterSpacing: "1px" }}>KEY:</span>
@@ -317,81 +340,93 @@ export default function LyricSheet({
         </div>
       </div>
 
-      {/* Multi-column Lyric sheet panel */}
-      <div className="lyric-sheet-columns" style={{ "--lyric-columns": numColumns }}>
-        {getColumns().map((colLines, colIdx) => (
-          <div 
-            key={colIdx} 
-            className="lyric-column"
-          >
-            {colLines.map((line, lineIdx) => {
-              if (line.type === "empty_line") {
-                return <div key={lineIdx} className="lyric-line-empty" />;
-              }
+      {/* Teleprompter / Karaoke Viewport */}
+      <div className="karaoke-viewport">
+        {displayedLines.map((line, idx) => {
+          const absoluteIdx = startIdx + idx;
+          let positionClass = "next";
+          if (absoluteIdx < currentActiveVisibleIdx) {
+            positionClass = "previous";
+          } else if (absoluteIdx === currentActiveVisibleIdx) {
+            positionClass = "active";
+          }
 
-              if (line.type === "text_only") {
-                return (
-                  <div key={lineIdx} className="lyric-line-meta">
-                    {line.text}
-                  </div>
-                );
-              }
+          if (line.type === "empty_line") {
+            return (
+              <div key={idx} className={`karaoke-line-wrapper ${positionClass}`}>
+                <div className="lyric-line-empty" />
+              </div>
+            );
+          }
 
-              // Lyric / Chord combination line
-              const segmentsWithChordState = line.segments.map((seg) => {
-                if (seg.type !== "chord") return seg;
+          if (line.type === "text_only") {
+            return (
+              <div key={idx} className={`karaoke-line-wrapper ${positionClass}`}>
+                <div className="lyric-line-meta">{line.text}</div>
+              </div>
+            );
+          }
 
-                const chordIndex = globalChordIdx++;
-                return {
-                  ...seg,
-                  chordIndex,
-                  isActive: chordIndex === currentChordIndex
-                };
-              });
-              const isActiveLine = segmentsWithChordState.some(seg => seg.isActive);
+          return (
+            <div key={idx} className={`karaoke-line-wrapper ${positionClass}`}>
+              <div className={`lyric-line-combo ${positionClass === "active" ? "active-line-glow" : ""}`}>
+                {line.segments.map((seg, segIdx) => {
+                  if (seg.type === "lyric") {
+                    const previousChord = [...line.segments]
+                      .slice(0, segIdx)
+                      .reverse()
+                      .find(item => item.type === "chord");
+                    const nextChord = line.segments
+                      .slice(segIdx + 1)
+                      .find(item => item.type === "chord");
+                    const isActiveLyric = previousChord?.chordIndex === currentChordIndex ||
+                      (!previousChord && nextChord?.chordIndex === currentChordIndex);
 
-              return (
-                <div key={lineIdx} className={`lyric-line-combo ${isActiveLine ? "active-line-glow" : ""}`}>
-                  {segmentsWithChordState.map((seg, segIdx) => {
-                    if (seg.type === "lyric") {
-                      const previousChord = [...segmentsWithChordState]
-                        .slice(0, segIdx)
-                        .reverse()
-                        .find(item => item.type === "chord");
-                      const nextChord = segmentsWithChordState
-                        .slice(segIdx + 1)
-                        .find(item => item.type === "chord");
-                      const isActiveLyric = previousChord?.chordIndex === currentChordIndex ||
-                        (!previousChord && nextChord?.chordIndex === currentChordIndex);
-
-                      return (
-                        <span key={segIdx} className={`lyric-text ${isActiveLyric ? "active-phrase" : ""}`}>
-                          {renderLyricText(seg.text, isActiveLyric)}
-                        </span>
-                      );
-                    }
-
-                    // Chord segment
-                    // Apply transposition shift
-                    const transposedChord = transposeChord(seg.chord, transposeOffset);
-                    
                     return (
-                      <span
-                        key={segIdx}
-                        className={`lyric-chord-tag ${seg.isActive ? "active-pulse" : ""}`}
-                        onClick={() => onSelectChord(seg.chordIndex, transposedChord)}
-                        title="Start from this chord"
-                      >
-                        {transposedChord}
+                      <span key={segIdx} className={`lyric-text ${isActiveLyric ? "active-phrase" : ""}`}>
+                        {renderLyricText(seg.text, isActiveLyric)}
                       </span>
                     );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-        ))}
+                  }
+
+                  // Chord segment
+                  const transposedChord = transposeChord(seg.chord, transposeOffset);
+                  const isChordActive = seg.chordIndex === currentChordIndex;
+
+                  return (
+                    <span
+                      key={segIdx}
+                      className={`lyric-chord-tag ${isChordActive ? "active-pulse" : ""}`}
+                      onClick={() => onSelectChord(seg.chordIndex, transposedChord)}
+                      title="Start from this chord"
+                    >
+                      {transposedChord}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
+      {waitingForSpaceLineIndex !== null && (
+        <div className="space-prompt-overlay animate-pulse" style={{
+          textAlign: "center",
+          margin: "15px auto 0 auto",
+          padding: "8px 16px",
+          background: "rgba(255, 234, 0, 0.15)",
+          border: "1px dashed var(--neon-yellow)",
+          borderRadius: "8px",
+          width: "fit-content",
+          color: "var(--neon-yellow)",
+          fontWeight: "bold",
+          fontSize: "0.85rem",
+          letterSpacing: "1px",
+          boxShadow: "0 0 10px rgba(255, 234, 0, 0.2)"
+        }}>
+          Press [SPACEBAR] to advance to the next line ⬇️
+        </div>
+      )}
     </div>
   );
 }

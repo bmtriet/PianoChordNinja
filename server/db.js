@@ -68,7 +68,7 @@ export async function getSongs(search = "", favoritesOnly = false) {
     params.push(term, term);
   }
 
-  query += " ORDER BY is_favorite DESC, title ASC";
+  query += " ORDER BY id DESC";
   
   const songs = await database.all(query, params);
   return songs.map(s => ({
