@@ -32,7 +32,15 @@ export default function GameHud({
 
   // Piano sound state parameters
   pianoSoundEnabled,
-  setPianoSoundEnabled
+  setPianoSoundEnabled,
+  
+    // BPM prediction
+  estimatedBpm,
+
+  // MIDI input diagnostics
+  midiLogs = [],
+  onCopyMidiLogs,
+  onClearMidiLogs
 }) {
   if (!active) return null;
 
@@ -75,6 +83,13 @@ export default function GameHud({
                   className="progress-bar-fill" 
                   style={{ width: `${Math.min(100, Math.max(0, songProgress * 100))}%` }}
                 ></div>
+              </div>
+            )}
+            {gameMode === "lyric" && estimatedBpm !== undefined && estimatedBpm > 0 && (
+              <div className="font-arcade" style={{ fontSize: "0.75rem", color: "var(--neon-cyan)", marginTop: "6px", textShadow: "0 0 4px rgba(0, 243, 255, 0.4)", display: "flex", justifyContent: "center", alignItems: "center", gap: "5px" }}>
+                <span>⚡ TEMPO:</span>
+                <span className="highlight animate-pulse" style={{ color: "var(--neon-yellow)" }}>{Math.round(estimatedBpm)} BPM</span>
+                <span style={{ color: "var(--text-secondary)" }}>(EST.)</span>
               </div>
             )}
           </>
@@ -190,6 +205,47 @@ export default function GameHud({
           <button onClick={onExitGame} className="hud-btn exit-btn">
             🚪 EXIT DOJO
           </button>
+
+          <div className="midi-log-panel">
+            <div className="midi-log-header">
+              <span>MIDI LOGS</span>
+              <span>{midiLogs.length}</span>
+            </div>
+            <div className="midi-log-actions">
+              <button
+                type="button"
+                className="hud-btn mini-action"
+                onClick={onCopyMidiLogs}
+                disabled={midiLogs.length === 0}
+              >
+                COPY
+              </button>
+              <button
+                type="button"
+                className="hud-btn mini-action"
+                onClick={onClearMidiLogs}
+                disabled={midiLogs.length === 0}
+              >
+                CLEAR
+              </button>
+            </div>
+            <div className="midi-log-list">
+              {midiLogs.length === 0 ? (
+                <div className="midi-log-empty">Play MIDI notes to log input.</div>
+              ) : (
+                midiLogs.slice(-24).map(entry => (
+                  <div key={entry.id} className={`midi-log-row ${entry.action === "ON" ? "note-on" : "note-off"}`}>
+                    <span className="midi-log-time">{entry.relativeTime.toFixed(2)}s</span>
+                    <span className="midi-log-action">{entry.action}</span>
+                    <span className="midi-log-note">{entry.noteName}</span>
+                    <span className="midi-log-extra">
+                      v{entry.velocity} · {entry.detectedChord || "-"}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

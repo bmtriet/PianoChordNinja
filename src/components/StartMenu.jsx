@@ -168,7 +168,7 @@ export default function StartMenu({
 
   return (
     <div id="startMenu" className="overlay active">
-      <div className="glass-panel" style={{ maxHeight: "90vh", overflowY: "auto" }}>
+      <div className={`glass-panel ${gameMode === "lyric" ? "wide-menu" : ""}`} style={{ maxHeight: "90vh", overflowY: "auto" }}>
         <h1 className="neon-title">
           PIANO CHORD<br /><span className="highlight">NINJA</span>
         </h1>
@@ -292,256 +292,443 @@ export default function StartMenu({
           </div>
         )}
 
-        {/* Lyric Mode Settings */}
-        {gameMode === "lyric" && (
-          <div className="settings-section animate-fade">
-            <h3>Play along with Song Lyrics & Chords</h3>
-            <form onSubmit={handleLoadUrl} className="url-loader-form" style={{ display: "flex", gap: "10px", margin: "15px 0" }}>
-              <input
-                type="text"
-                value={lyricSongUrl}
-                onChange={(e) => setLyricSongUrl(e.target.value)}
-                placeholder="Paste Hợp Âm Chuẩn song URL (e.g. https://hopamchuan.com/...)"
-                className="glass-select"
-                style={{ flex: 1, paddingLeft: "15px", cursor: "text" }}
-                disabled={isLyricLoading}
-              />
-              <button 
-                type="submit" 
-                className="control-btn toggle-active" 
-                style={{ minWidth: "120px", cursor: "pointer" }}
-                disabled={isLyricLoading}
-              >
-                {isLyricLoading ? "Loading..." : "LOAD SONG"}
-              </button>
-            </form>
-
-            <div className="url-suggestions" style={{ textAlign: "left", fontSize: "0.85rem" }}>
-              <span style={{ color: "var(--text-secondary)" }}>Quick Presets:</span>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginTop: "8px" }}>
-                <button
-                  type="button"
-                  className="hud-btn"
-                  style={{ width: "auto", borderRadius: "8px", fontSize: "0.8rem", padding: "4px 10px" }}
-                  onClick={() => handleQuickLoad("https://hopamchuan.com/song/54/co-gai-den-tu-hom-qua/LNTguitar")}
-                  disabled={isLyricLoading}
-                >
-                  Cô Gái Đến Từ Hôm Qua
-                </button>
-                <button
-                  type="button"
-                  className="hud-btn"
-                  style={{ width: "auto", borderRadius: "8px", fontSize: "0.8rem", padding: "4px 10px" }}
-                  onClick={() => handleQuickLoad("https://hopamchuan.com/song/8889/la-lung/oneduck")}
-                  disabled={isLyricLoading}
-                >
-                  Lạ Lùng (Vũ)
-                </button>
-              </div>
-            </div>
-
-            {lyricSongData && (
-              <div className="upload-success" style={{ marginTop: "15px", textAlign: "left" }}>
-                ✅ Loaded: <strong>{lyricSongData.title}</strong> by {lyricSongData.artist} ({lyricSongData.lines.filter(l => l.type === "lyric_chords").length} lines parsed)
-              </div>
-            )}
-
-            {/* Search and Filters */}
-            <div style={{ display: "flex", gap: "15px", margin: "25px 0 10px 0", flexWrap: "wrap", alignItems: "center" }}>
-              <input
-                type="text"
-                value={songSearchQuery}
-                onChange={(e) => setSongSearchQuery(e.target.value)}
-                placeholder="🔍 Search saved songs..."
-                className="glass-select"
-                style={{ flex: 1, paddingLeft: "15px", cursor: "text", fontSize: "0.9rem" }}
-              />
-              <label className="checkbox-container" style={{ paddingLeft: "25px", fontSize: "0.85rem", width: "auto" }}>
-                <input
-                  type="checkbox"
-                  checked={showFavoritesOnly}
-                  onChange={(e) => setShowFavoritesOnly(e.target.checked)}
-                />
-                <span className="custom-checkbox" style={{ height: "16px", width: "16px" }}></span>
-                Favorites Only ❤️
-              </label>
-            </div>
-
-            {/* Saved Songs Library Grid */}
-            <h4 style={{ color: "var(--neon-cyan)", fontSize: "0.9rem", margin: "15px 0 8px 0", textTransform: "uppercase", letterSpacing: "1px", textAlign: "left" }}>
-              Saved Library ({savedSongsList.length})
-            </h4>
-            <div className="saved-songs-grid" style={{ maxHeight: "200px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px", background: "rgba(0, 0, 0, 0.2)", padding: "10px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.05)" }}>
-              {savedSongsList.length === 0 ? (
-                <div style={{ padding: "20px", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                  No saved songs found. Scrape a URL to add one!
+        {/* Two-column layout for Lyric mode, standard single-column vertical layout for other modes */}
+        {gameMode === "lyric" ? (
+          <div className="menu-columns-container">
+            {/* Left Column: Dojo Options, Webcam, Start button */}
+            <div className="menu-column-left">
+              <div className="settings-section">
+                <h3>Dojo Options & Layout</h3>
+                <div className="checkbox-grid">
+                  <label className="checkbox-container">
+                    <input
+                      type="checkbox"
+                      checked={noDieEnabled}
+                      onChange={(e) => setNoDieEnabled(e.target.checked)}
+                    />
+                    <span className="custom-checkbox"></span>
+                    No Die Mode (Infinite Lives)
+                  </label>
+                  <label className="checkbox-container">
+                    <input
+                      type="checkbox"
+                      checked={autoPlayEnabled}
+                      onChange={(e) => setAutoPlayEnabled(e.target.checked)}
+                    />
+                    <span className="custom-checkbox"></span>
+                    Auto Play (Show helper play)
+                  </label>
+                  <label className="checkbox-container">
+                    <input
+                      type="checkbox"
+                      checked={pianoSoundEnabled}
+                      onChange={(e) => setPianoSoundEnabled(e.target.checked)}
+                    />
+                    <span className="custom-checkbox"></span>
+                    Virtual Piano Sound Audio
+                  </label>
                 </div>
-              ) : (
-                savedSongsList.map((song) => (
-                  <div key={song.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255, 255, 255, 0.03)", padding: "8px 12px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)" }}>
-                    <div style={{ textAlign: "left", cursor: "pointer", flex: 1 }} onClick={() => onSelectSavedSong(song)}>
-                      <strong style={{ fontSize: "0.9rem", color: "#fff" }}>{song.title}</strong>
-                      <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginLeft: "8px" }}>by {song.artist}</span>
-                      {song.transpose !== 0 && (
-                        <span style={{ fontSize: "0.75rem", color: "var(--neon-yellow)", background: "rgba(255,234,0,0.1)", padding: "1px 5px", borderRadius: "4px", marginLeft: "8px" }}>
-                          Key: {song.transpose >= 0 ? `+${song.transpose}` : song.transpose}
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                      <button 
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); onToggleFavoriteSong(song); }}
-                        style={{ background: "transparent", border: "none", fontSize: "1.1rem", cursor: "pointer" }}
-                        title="Toggle Favorite"
-                      >
-                        {song.is_favorite ? "❤️" : "🖤"}
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); if (confirm("Delete this song?")) onDeleteSavedSong(song.id); }}
-                        style={{ background: "transparent", border: "none", color: "var(--neon-red)", fontSize: "0.95rem", cursor: "pointer", padding: "2px 5px" }}
-                        title="Delete Song"
-                      >
-                        🗑️
-                      </button>
-                    </div>
+                
+                <div className="range-selector">
+                  <label className="section-label">Keyboard Size:</label>
+                  <select
+                    value={keyboardRange}
+                    onChange={(e) => setKeyboardRange(parseInt(e.target.value))}
+                    className="glass-select"
+                  >
+                    <option value="25">25 Keys (C4 - C6)</option>
+                    <option value="49">49 Keys (C2 - C6)</option>
+                    <option value="88">88 Keys (A0 - C8)</option>
+                  </select>
+                </div>
+                
+                <div className="range-selector" style={{ marginTop: "14px" }}>
+                  <label className="section-label">Audio Sound Preset:</label>
+                  <select
+                    value={audioPreset}
+                    onChange={(e) => setAudioPreset(e.target.value)}
+                    className="glass-select"
+                  >
+                    <option value="piano">🎹 Grand Piano (Acoustic)</option>
+                    <option value="rhodes">🔮 Rhodes EP (Warm Electric)</option>
+                    <option value="synth">⚡ Retro Poly-Synth (80s Brass)</option>
+                    <option value="musicbox">✨ Music Box (Toy Chimes)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="settings-section">
+                <h3>Webcam & Environment</h3>
+                <div className="webcam-controls">
+                  <button
+                    onClick={() => setCameraEnabled(!cameraEnabled)}
+                    className={`control-btn ${cameraEnabled ? "toggle-active" : ""}`}
+                  >
+                    Webcam Background: {cameraEnabled ? "Enabled" : "Disabled"}
+                  </button>
+                  <div className="slider-container">
+                    <label>Webcam Blur: <span>{blurAmount}px</span></label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="40"
+                      value={blurAmount}
+                      onChange={(e) => setBlurAmount(parseInt(e.target.value))}
+                      step="2"
+                    />
                   </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
+                </div>
+              </div>
 
-        {/* General Practice Options & Keyboard Range */}
-        <div className="settings-section">
-          <h3>Dojo Options & Layout</h3>
-          <div className="checkbox-grid">
-            <label className="checkbox-container">
-              <input
-                type="checkbox"
-                checked={noDieEnabled}
-                onChange={(e) => setNoDieEnabled(e.target.checked)}
-              />
-              <span className="custom-checkbox"></span>
-              No Die Mode (Infinite Lives)
-            </label>
-            <label className="checkbox-container">
-              <input
-                type="checkbox"
-                checked={autoPlayEnabled}
-                onChange={(e) => setAutoPlayEnabled(e.target.checked)}
-              />
-              <span className="custom-checkbox"></span>
-              Auto Play (Show helper play)
-            </label>
-            <label className="checkbox-container">
-              <input
-                type="checkbox"
-                checked={pianoSoundEnabled}
-                onChange={(e) => setPianoSoundEnabled(e.target.checked)}
-              />
-              <span className="custom-checkbox"></span>
-              Virtual Piano Sound Audio
-            </label>
-            {gameMode === "ninja" && (
-              <label className="checkbox-container">
-                <input
-                  type="checkbox"
-                  checked={learnModeEnabled}
-                  onChange={(e) => setLearnModeEnabled(e.target.checked)}
-                />
-                <span className="custom-checkbox"></span>
-                Learn Mode (Pause at peak)
-              </label>
-            )}
-          </div>
-          <div className="range-selector">
-            <label className="section-label">Keyboard Size:</label>
-            <select
-              value={keyboardRange}
-              onChange={(e) => setKeyboardRange(parseInt(e.target.value))}
-              className="glass-select"
-            >
-              <option value="25">25 Keys (C4 - C6)</option>
-              <option value="49">49 Keys (C2 - C6)</option>
-              <option value="88">88 Keys (A0 - C8)</option>
-            </select>
-          </div>
-          <div className="range-selector" style={{ marginTop: "14px" }}>
-            <label className="section-label">Audio Sound Preset:</label>
-            <select
-              value={audioPreset}
-              onChange={(e) => setAudioPreset(e.target.value)}
-              className="glass-select"
-            >
-              <option value="piano">🎹 Grand Piano (Acoustic)</option>
-              <option value="rhodes">🔮 Rhodes EP (Warm Electric)</option>
-              <option value="synth">⚡ Retro Poly-Synth (80s Brass)</option>
-              <option value="musicbox">✨ Music Box (Toy Chimes)</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Backing Track Selection (only for Ninja mode) */}
-        {gameMode === "ninja" && (
-          <div className="settings-section">
-            <h3>Play-Along Background Song</h3>
-            <div className="music-selector-wrapper">
-              <select
-                value={currentSongIndex}
-                onChange={(e) => setCurrentSongIndex(parseInt(e.target.value))}
-                className="glass-select"
+              <button 
+                onClick={onStartGame} 
+                className="neon-btn"
+                disabled={!lyricSongData}
+                style={!lyricSongData ? { opacity: 0.5, cursor: "not-allowed", boxShadow: "none", marginTop: "15px" } : { marginTop: "15px" }}
               >
-                <option value={-1}>None (No backing track)</option>
-                <option value={0}>Canon in D (Pachelbel)</option>
-                <option value={1}>Let It Be (The Beatles)</option>
-                <option value={2}>Für Elise (Beethoven)</option>
-                <option value={3}>Imagine (John Lennon)</option>
-                <option value={4}>Stand by Me (Ben E. King)</option>
-                <option value={5}>Autumn Leaves (Jazz)</option>
-                <option value={6}>Yesterday (The Beatles)</option>
-                <option value={7}>Fly Me to the Moon</option>
-                <option value={8}>Moonlight Sonata</option>
-                <option value={9}>Clair de Lune (Debussy)</option>
-              </select>
+                {!lyricSongData ? "LOAD A SONG FIRST" : "ENTER THE DOJO"}
+              </button>
+            </div>
+
+            {/* Right Column: Song Library, URL Scraper, Search/Favorites */}
+            <div className="menu-column-right">
+              <div className="settings-section" style={{ height: "100%", display: "flex", flexDirection: "column", margin: 0 }}>
+                <h3>Play along with Song Lyrics & Chords</h3>
+                <form onSubmit={handleLoadUrl} className="url-loader-form" style={{ display: "flex", gap: "10px", margin: "15px 0 10px 0" }}>
+                  <input
+                    type="text"
+                    value={lyricSongUrl}
+                    onChange={(e) => setLyricSongUrl(e.target.value)}
+                    placeholder="Paste Hợp Âm Chuẩn song URL (e.g. https://hopamchuan.com/...)"
+                    className="glass-select"
+                    style={{ flex: 1, paddingLeft: "15px", cursor: "text" }}
+                    disabled={isLyricLoading}
+                  />
+                  <button 
+                    type="submit" 
+                    className="control-btn toggle-active" 
+                    style={{ minWidth: "120px", cursor: "pointer" }}
+                    disabled={isLyricLoading}
+                  >
+                    {isLyricLoading ? "Loading..." : "LOAD SONG"}
+                  </button>
+                </form>
+
+                <div className="url-suggestions" style={{ textAlign: "left", fontSize: "0.85rem" }}>
+                  <span style={{ color: "var(--text-secondary)" }}>Quick Presets:</span>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginTop: "8px" }}>
+                    <button
+                      type="button"
+                      className="hud-btn"
+                      style={{ width: "auto", borderRadius: "8px", fontSize: "0.8rem", padding: "4px 10px" }}
+                      onClick={() => handleQuickLoad("https://hopamchuan.com/song/54/co-gai-den-tu-hom-qua/LNTguitar")}
+                      disabled={isLyricLoading}
+                    >
+                      Cô Gái Đến Từ Hôm Qua
+                    </button>
+                    <button
+                      type="button"
+                      className="hud-btn"
+                      style={{ width: "auto", borderRadius: "8px", fontSize: "0.8rem", padding: "4px 10px" }}
+                      onClick={() => handleQuickLoad("https://hopamchuan.com/song/8889/la-lung/oneduck")}
+                      disabled={isLyricLoading}
+                    >
+                      Lạ Lùng (Vũ)
+                    </button>
+                  </div>
+                </div>
+
+                {lyricSongData && (
+                  <div className="upload-success" style={{ marginTop: "15px", textAlign: "left" }}>
+                    ✅ Loaded: <strong>{lyricSongData.title}</strong> by {lyricSongData.artist} ({lyricSongData.lines.filter(l => l.type === "lyric_chords").length} lines parsed)
+                  </div>
+                )}
+
+                {/* Search and Filters */}
+                <div style={{ display: "flex", gap: "15px", margin: "20px 0 10px 0", flexWrap: "wrap", alignItems: "center" }}>
+                  <input
+                    type="text"
+                    value={songSearchQuery}
+                    onChange={(e) => setSongSearchQuery(e.target.value)}
+                    placeholder="🔍 Search saved songs..."
+                    className="glass-select"
+                    style={{ flex: 1, paddingLeft: "15px", cursor: "text", fontSize: "0.9rem" }}
+                  />
+                  <label className="checkbox-container" style={{ paddingLeft: "25px", fontSize: "0.85rem", width: "auto" }}>
+                    <input
+                      type="checkbox"
+                      checked={showFavoritesOnly}
+                      onChange={(e) => setShowFavoritesOnly(e.target.checked)}
+                    />
+                    <span className="custom-checkbox" style={{ height: "16px", width: "16px" }}></span>
+                    Favorites Only ❤️
+                  </label>
+                </div>
+
+                {/* Saved Songs Library Grid */}
+                <h4 style={{ color: "var(--neon-cyan)", fontSize: "0.9rem", margin: "10px 0 8px 0", textTransform: "uppercase", letterSpacing: "1px", textAlign: "left" }}>
+                  Saved Library ({savedSongsList.length})
+                </h4>
+                <div className="saved-songs-grid" style={{ maxHeight: "380px", height: "380px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px", background: "rgba(0, 0, 0, 0.2)", padding: "10px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                  {savedSongsList.length === 0 ? (
+                    <div style={{ padding: "20px", color: "var(--text-secondary)", fontSize: "0.85rem", textAlign: "center" }}>
+                      No saved songs found. Scrape a URL to add one!
+                    </div>
+                  ) : (
+                    savedSongsList.map((song) => (
+                      <div key={song.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255, 255, 255, 0.03)", padding: "8px 12px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                        <div style={{ textAlign: "left", cursor: "pointer", flex: 1 }} onClick={() => onSelectSavedSong(song)}>
+                          <strong style={{ fontSize: "0.9rem", color: "#fff" }}>{song.title}</strong>
+                          <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginLeft: "8px" }}>by {song.artist}</span>
+                          {song.transpose !== 0 && (
+                            <span style={{ fontSize: "0.75rem", color: "var(--neon-yellow)", background: "rgba(255,234,0,0.1)", padding: "1px 5px", borderRadius: "4px", marginLeft: "8px" }}>
+                              Key: {song.transpose >= 0 ? `+${song.transpose}` : song.transpose}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onToggleFavoriteSong(song); }}
+                            style={{ background: "transparent", border: "none", fontSize: "1.1rem", cursor: "pointer" }}
+                            title="Toggle Favorite"
+                          >
+                            {song.is_favorite ? "❤️" : "🖤"}
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); if (confirm("Delete this song?")) onDeleteSavedSong(song.id); }}
+                            style={{ background: "transparent", border: "none", color: "var(--neon-red)", fontSize: "0.95rem", cursor: "pointer", padding: "2px 5px" }}
+                            title="Delete Song"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        )}
+        ) : (
+          <>
+            {/* Chord Practice Mode Settings */}
+            {gameMode === "ninja" && (
+              <div className="settings-section animate-fade">
+                <h3>Select Chord Families to Practice</h3>
+                <div className="chord-filters">
+                  {Object.keys(chordFamilies).map((fam) => (
+                    <label key={fam} className="checkbox-container">
+                      <input
+                        type="checkbox"
+                        checked={chordFamilies[fam]}
+                        onChange={(e) =>
+                          setChordFamilies({
+                            ...chordFamilies,
+                            [fam]: e.target.checked
+                          })
+                        }
+                      />
+                      <span className="custom-checkbox"></span>
+                      {fam.charAt(0).toUpperCase() + fam.slice(1)} Triads
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
 
-        {/* Webcam Environment controls */}
-        <div className="settings-section">
-          <h3>Webcam & Environment</h3>
-          <div className="webcam-controls">
-            <button
-              onClick={() => setCameraEnabled(!cameraEnabled)}
-              className={`control-btn ${cameraEnabled ? "toggle-active" : ""}`}
+            {/* Waterfall Song Mode Settings */}
+            {gameMode === "waterfall" && (
+              <div className="settings-section animate-fade">
+                <h3>Select Waterfall Song & Mode</h3>
+                <div className="waterfall-options-grid">
+                  <div className="range-selector">
+                    <label className="section-label">Choose Song:</label>
+                    <select
+                      value={waterfallSongIndex}
+                      onChange={(e) => setWaterfallSongIndex(parseInt(e.target.value))}
+                      className="glass-select"
+                    >
+                      {WATERFALL_SONGS.map((song, idx) => (
+                        <option key={idx} value={idx}>
+                          {song.name}
+                        </option>
+                      ))}
+                      {customWaterfallSong && (
+                        <option value={-2}>📂 Custom: {customWaterfallSong.name}</option>
+                      )}
+                    </select>
+                  </div>
+
+                  <div className="range-selector">
+                    <label className="section-label">Waterfall Play Mode:</label>
+                    <select
+                      value={waterfallPlayMode}
+                      onChange={(e) => setWaterfallPlayMode(e.target.value)}
+                      className="glass-select"
+                    >
+                      <option value="practice">📖 Practice Mode (Wait for input)</option>
+                      <option value="arcade">⚡ Arcade Mode (Real-time speed)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div
+                  className={`file-uploader ${dragActive ? "drag-active" : ""}`}
+                  onDragEnter={handleDrag}
+                  onDragOver={handleDrag}
+                  onDragLeave={handleDrag}
+                  onDrop={handleDrop}
+                >
+                  <p>Drag & Drop a MIDI-JSON file here or</p>
+                  <label className="file-upload-btn">
+                    Browse Files
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={handleFileChange}
+                      style={{ display: "none" }}
+                    />
+                  </label>
+                  {customWaterfallSong && (
+                    <div className="upload-success">
+                      ✅ Successfully loaded: <strong>{customWaterfallSong.name}</strong>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* General Practice Options & Keyboard Range */}
+            <div className="settings-section">
+              <h3>Dojo Options & Layout</h3>
+              <div className="checkbox-grid">
+                <label className="checkbox-container">
+                  <input
+                    type="checkbox"
+                    checked={noDieEnabled}
+                    onChange={(e) => setNoDieEnabled(e.target.checked)}
+                  />
+                  <span className="custom-checkbox"></span>
+                  No Die Mode (Infinite Lives)
+                </label>
+                <label className="checkbox-container">
+                  <input
+                    type="checkbox"
+                    checked={autoPlayEnabled}
+                    onChange={(e) => setAutoPlayEnabled(e.target.checked)}
+                  />
+                  <span className="custom-checkbox"></span>
+                  Auto Play (Show helper play)
+                </label>
+                <label className="checkbox-container">
+                  <input
+                    type="checkbox"
+                    checked={pianoSoundEnabled}
+                    onChange={(e) => setPianoSoundEnabled(e.target.checked)}
+                  />
+                  <span className="custom-checkbox"></span>
+                  Virtual Piano Sound Audio
+                </label>
+                {gameMode === "ninja" && (
+                  <label className="checkbox-container">
+                    <input
+                      type="checkbox"
+                      checked={learnModeEnabled}
+                      onChange={(e) => setLearnModeEnabled(e.target.checked)}
+                    />
+                    <span className="custom-checkbox"></span>
+                    Learn Mode (Pause at peak)
+                  </label>
+                )}
+              </div>
+              <div className="range-selector">
+                <label className="section-label">Keyboard Size:</label>
+                <select
+                  value={keyboardRange}
+                  onChange={(e) => setKeyboardRange(parseInt(e.target.value))}
+                  className="glass-select"
+                >
+                  <option value="25">25 Keys (C4 - C6)</option>
+                  <option value="49">49 Keys (C2 - C6)</option>
+                  <option value="88">88 Keys (A0 - C8)</option>
+                </select>
+              </div>
+              <div className="range-selector" style={{ marginTop: "14px" }}>
+                <label className="section-label">Audio Sound Preset:</label>
+                <select
+                  value={audioPreset}
+                  onChange={(e) => setAudioPreset(e.target.value)}
+                  className="glass-select"
+                >
+                  <option value="piano">🎹 Grand Piano (Acoustic)</option>
+                  <option value="rhodes">🔮 Rhodes EP (Warm Electric)</option>
+                  <option value="synth">⚡ Retro Poly-Synth (80s Brass)</option>
+                  <option value="musicbox">✨ Music Box (Toy Chimes)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Backing Track Selection (only for Ninja mode) */}
+            {gameMode === "ninja" && (
+              <div className="settings-section">
+                <h3>Play-Along Background Song</h3>
+                <div className="music-selector-wrapper">
+                  <select
+                    value={currentSongIndex}
+                    onChange={(e) => setCurrentSongIndex(parseInt(e.target.value))}
+                    className="glass-select"
+                  >
+                    <option value={-1}>None (No backing track)</option>
+                    <option value={0}>Canon in D (Pachelbel)</option>
+                    <option value={1}>Let It Be (The Beatles)</option>
+                    <option value={2}>Für Elise (Beethoven)</option>
+                    <option value={3}>Imagine (John Lennon)</option>
+                    <option value={4}>Stand by Me (Ben E. King)</option>
+                    <option value={5}>Autumn Leaves (Jazz)</option>
+                    <option value={6}>Yesterday (The Beatles)</option>
+                    <option value={7}>Fly Me to the Moon</option>
+                    <option value={8}>Moonlight Sonata</option>
+                    <option value={9}>Clair de Lune (Debussy)</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Webcam Environment controls */}
+            <div className="settings-section">
+              <h3>Webcam & Environment</h3>
+              <div className="webcam-controls">
+                <button
+                  onClick={() => setCameraEnabled(!cameraEnabled)}
+                  className={`control-btn ${cameraEnabled ? "toggle-active" : ""}`}
+                >
+                  Webcam Background: {cameraEnabled ? "Enabled" : "Disabled"}
+                </button>
+                <div className="slider-container">
+                  <label>Webcam Blur: <span>{blurAmount}px</span></label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="40"
+                    value={blurAmount}
+                    onChange={(e) => setBlurAmount(parseInt(e.target.value))}
+                    step="2"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Start Game Button */}
+            <button 
+              onClick={onStartGame} 
+              className="neon-btn"
             >
-              Webcam Background: {cameraEnabled ? "Enabled" : "Disabled"}
+              ENTER THE DOJO
             </button>
-            <div className="slider-container">
-              <label>Webcam Blur: <span>{blurAmount}px</span></label>
-              <input
-                type="range"
-                min="0"
-                max="40"
-                value={blurAmount}
-                onChange={(e) => setBlurAmount(parseInt(e.target.value))}
-                step="2"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Start Game Button */}
-        <button 
-          onClick={onStartGame} 
-          className="neon-btn"
-          disabled={gameMode === "lyric" && !lyricSongData}
-          style={(gameMode === "lyric" && !lyricSongData) ? { opacity: 0.5, cursor: "not-allowed", boxShadow: "none" } : {}}
-        >
-          {gameMode === "lyric" && !lyricSongData ? "LOAD A SONG FIRST" : "ENTER THE DOJO"}
-        </button>
+          </>
+        )}
       </div>
     </div>
   );

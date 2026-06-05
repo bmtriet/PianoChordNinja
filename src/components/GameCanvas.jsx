@@ -45,6 +45,7 @@ export default function GameCanvas({
   
   // States to push back up to App.jsx
   onStatsUpdate, // (score, combo, detectedChord, lives, isMuted)
+  onInputLog,
   onGameFinished, // (finalScore, maxCombo, slicedChords, notesHit, totalNotes)
   
   // Ref hooks to trigger actions from HUD
@@ -198,11 +199,11 @@ export default function GameCanvas({
       audioManager.init();
       audioManager.noteOn(note);
       stateRef.current.activeNotes.add(note);
-      onInputChanged(note, true);
+      onInputChanged(note, true, "midi", velocity);
     } else if (command === 128 || (command === 144 && velocity === 0)) {
       audioManager.noteOff(note);
       stateRef.current.activeNotes.delete(note);
-      onInputChanged(note, false);
+      onInputChanged(note, false, "midi", velocity);
     }
   }
 
@@ -213,6 +214,7 @@ export default function GameCanvas({
     };
 
     const handleKeyDown = (e) => {
+      if (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA") return;
       if (gameState !== "playing" && e.code === "Enter") {
         setGameState("playing");
         return;
@@ -230,11 +232,12 @@ export default function GameCanvas({
         stateRef.current.activeQwertyNotes.set(e.code, midiNote);
         stateRef.current.activeNotes.add(midiNote);
         audioManager.noteOn(midiNote);
-        onInputChanged(midiNote, true);
+        onInputChanged(midiNote, true, "qwerty", 127);
       }
     };
 
     const handleKeyUp = (e) => {
+      if (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA") return;
       if (gameState !== "playing") return;
       if (autoPlayEnabled && gameMode === "waterfall") return;
 
@@ -244,7 +247,7 @@ export default function GameCanvas({
           audioManager.noteOff(midiNote);
           stateRef.current.activeNotes.delete(midiNote);
           stateRef.current.activeQwertyNotes.delete(e.code);
-          onInputChanged(midiNote, false);
+          onInputChanged(midiNote, false, "qwerty", 0);
         }
       }
     };
@@ -258,7 +261,7 @@ export default function GameCanvas({
     };
   }
 
-  function onInputChanged(noteNumber, isPressed) {
+  function onInputChanged(noteNumber, isPressed, source = "midi", velocity = 0) {
     const state = stateRef.current;
     
     // Trigger rating hits in Waterfall Mode (Arcade Play)
@@ -269,6 +272,7 @@ export default function GameCanvas({
     if (state.activeNotes.size === 0) {
       state.detectedChordName = "";
       pushStats();
+      pushInputLog(noteNumber, isPressed, source, velocity);
       return;
     }
 
@@ -276,13 +280,29 @@ export default function GameCanvas({
     if (detected) {
       state.detectedChordName = detected.name;
       pushStats();
+      pushInputLog(noteNumber, isPressed, source, velocity);
       if (state.gameState === "playing" && gameMode === "ninja") {
         checkChordSlicing(detected.name);
       }
     } else {
       state.detectedChordName = "Unknown Chord";
       pushStats();
+      pushInputLog(noteNumber, isPressed, source, velocity);
     }
+  }
+
+  function pushInputLog(noteNumber, isPressed, source, velocity) {
+    if (!onInputLog) return;
+
+    const s = stateRef.current;
+    onInputLog({
+      note: noteNumber,
+      isPressed,
+      source,
+      velocity,
+      detectedChord: s.detectedChordName,
+      activeNotes: Array.from(s.activeNotes)
+    });
   }
 
   function pushStats() {
@@ -291,7 +311,8 @@ export default function GameCanvas({
       score: s.score,
       combo: s.combo,
       detectedChord: s.detectedChordName,
-      lives: s.lives
+      lives: s.lives,
+      activeNotes: Array.from(s.activeNotes)
     });
   }
 

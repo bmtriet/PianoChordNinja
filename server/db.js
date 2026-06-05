@@ -77,15 +77,30 @@ export async function getSongs(search = "", favoritesOnly = false) {
   }));
 }
 
-export async function updateSong(id, transpose, isFavorite) {
+export async function updateSong(id, updates = {}) {
   const database = await getDb();
-  
-  if (transpose !== undefined && isFavorite !== undefined) {
-    await database.run("UPDATE songs SET transpose = ?, is_favorite = ? WHERE id = ?", [transpose, isFavorite, id]);
-  } else if (transpose !== undefined) {
-    await database.run("UPDATE songs SET transpose = ? WHERE id = ?", [transpose, id]);
-  } else if (isFavorite !== undefined) {
-    await database.run("UPDATE songs SET is_favorite = ? WHERE id = ?", [isFavorite, id]);
+
+  const fields = [];
+  const values = [];
+
+  if (updates.transpose !== undefined) {
+    fields.push("transpose = ?");
+    values.push(updates.transpose);
+  }
+
+  if (updates.is_favorite !== undefined) {
+    fields.push("is_favorite = ?");
+    values.push(updates.is_favorite);
+  }
+
+  if (updates.content !== undefined) {
+    fields.push("content = ?");
+    values.push(typeof updates.content === "string" ? updates.content : JSON.stringify(updates.content));
+  }
+
+  if (fields.length > 0) {
+    values.push(id);
+    await database.run(`UPDATE songs SET ${fields.join(", ")} WHERE id = ?`, values);
   }
 
   return await database.get("SELECT * FROM songs WHERE id = ?", [id]);

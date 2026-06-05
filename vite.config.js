@@ -142,7 +142,7 @@ const dbAndScrapePlugin = () => ({
           if (!isNaN(songId)) {
             if (req.method === 'PUT') {
               const body = await getJsonBody(req);
-              const updated = await updateSong(songId, body.transpose, body.is_favorite);
+              const updated = await updateSong(songId, body);
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify(updated));

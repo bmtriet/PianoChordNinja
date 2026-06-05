@@ -101,17 +101,11 @@ export function getChordNotes(chordName) {
   // Strip slash chord parts (e.g. C/E -> C, Am/G -> Am)
   const baseChord = chordName.split("/")[0].trim();
   
-  let root = "";
-  if (baseChord.length >= 2 && NOTE_NAMES.includes(baseChord.substring(0, 2))) {
-    root = baseChord.substring(0, 2);
-  } else if (NOTE_NAMES.includes(baseChord.substring(0, 1))) {
-    root = baseChord.substring(0, 1);
-  } else {
-    return null;
-  }
+  const parsed = parseRootAndSuffix(baseChord);
+  if (!parsed.root) return null;
   
-  const rootIndex = NOTE_NAMES.indexOf(root);
-  const suffix = baseChord.substring(root.length).trim();
+  const rootIndex = NOTE_NAMES.indexOf(parsed.root);
+  const suffix = parsed.suffix.trim();
   
   // Normalize suffix
   let normalizedSuffix = suffix;
@@ -207,30 +201,83 @@ export function transposeChord(chordName, semitones) {
     part = part.trim();
     if (!part) return "";
 
-    // Find root note
-    let root = "";
-    if (part.length >= 2 && NOTE_NAMES.includes(part.substring(0, 2))) {
-      root = part.substring(0, 2);
-    } else if (NOTE_NAMES.includes(part.substring(0, 1))) {
-      root = part.substring(0, 1);
-    } else {
-      // Check if flat note (e.g. Db, Eb, Gb, Ab, Bb)
-      const possibleFlat = part.substring(0, 2);
-      if (possibleFlat.length === 2 && ["Db", "Eb", "Gb", "Ab", "Bb"].includes(possibleFlat)) {
-        const flatToSharpMap = { "Db": "C#", "Eb": "D#", "Gb": "F#", "Ab": "G#", "Bb": "A#" };
-        root = flatToSharpMap[possibleFlat];
-      } else {
-        return part; // Return as-is if no root matches
-      }
-    }
+    const parsed = parseRootAndSuffix(part);
+    if (!parsed.root) return part;
 
-    const suffix = part.substring(root.length);
-    const rootIndex = NOTE_NAMES.indexOf(root);
-    if (rootIndex === -1) return part;
-
+    const rootIndex = NOTE_NAMES.indexOf(parsed.root);
     const transposedIndex = (rootIndex + semitones + 12) % 12;
     const transposedRoot = NOTE_NAMES[transposedIndex];
 
-    return transposedRoot + suffix;
+    return transposedRoot + parsed.suffix;
   }).join("/");
+}
+
+/**
+ * Gets the expected bass note name for a given chord name.
+ * e.g., getChordBassNote("C/E") => "E"
+ * e.g., getChordBassNote("Am") => "A"
+ * @param {string} chordName 
+ * @returns {string|null} The bass note name
+ */
+export function getChordBassNote(chordName) {
+  if (!chordName) return null;
+  const parts = chordName.split("/");
+  if (parts.length > 1) {
+    const bassPart = parts[1].trim();
+    const parsed = parseRootAndSuffix(bassPart);
+    return parsed.root || null;
+  }
+  
+  // No slash: parse the root note name of base chord
+  const baseChord = parts[0].trim();
+  const parsed = parseRootAndSuffix(baseChord);
+  return parsed.root || null;
+}
+
+/**
+ * Helper to parse root and suffix from a chord part.
+ * Maps flat notes (Db, Eb, Gb, Ab, Bb) to their sharp equivalents.
+ * @param {string} part 
+ * @returns {Object} { root: string, suffix: string }
+ */
+export function parseRootAndSuffix(part) {
+  let root = "";
+  let suffix = "";
+  
+  if (part.length >= 2) {
+    const twoChars = part.substring(0, 2);
+    if (NOTE_NAMES.includes(twoChars)) {
+      root = twoChars;
+      suffix = part.substring(2);
+    } else if (["Db", "Eb", "Gb", "Ab", "Bb"].includes(twoChars)) {
+      const flatToSharpMap = { "Db": "C#", "Eb": "D#", "Gb": "F#", "Ab": "G#", "Bb": "A#" };
+      root = flatToSharpMap[twoChars];
+      suffix = part.substring(2);
+    }
+  }
+  
+  if (!root && part.length >= 1) {
+    const oneChar = part.substring(0, 1);
+    if (NOTE_NAMES.includes(oneChar)) {
+      root = oneChar;
+      suffix = part.substring(1);
+    }
+  }
+  
+  return { root, suffix };
+}
+
+/**
+ * Gets the root note name for a given chord name, ignoring any slash parts.
+ * Maps flat roots to their sharp equivalents.
+ * e.g., getChordRoot("C/E") => "C"
+ * e.g., getChordRoot("Am/G") => "A"
+ * @param {string} chordName 
+ * @returns {string} The root note name
+ */
+export function getChordRoot(chordName) {
+  if (!chordName) return "";
+  const baseChord = chordName.split("/")[0].trim();
+  const parsed = parseRootAndSuffix(baseChord);
+  return parsed.root;
 }
